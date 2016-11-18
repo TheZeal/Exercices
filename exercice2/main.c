@@ -6,6 +6,8 @@
 //  Copyright © 2016 Zeal Iskander. All rights reserved.
 //  19
 
+#define noOSX_ACL
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <dirent.h>
@@ -14,11 +16,12 @@
 #include <grp.h>
 #include <time.h>
 #include <sys/time.h>
-#include <uuid/uuid.h>
 #include <pwd.h>
 #include <unistd.h>
+#ifdef OSX_ACL
 #include <sys/xattr.h>
 #include <sys/acl.h>
+#endif
 
 #define MAX_FILES   1000000
 
@@ -33,7 +36,10 @@ typedef enum {
     NAME
 } PrintType;
 
+#ifdef OSX_ACL
 acl_entry_t foo;
+#endif
+
 int isText[8] = {0, 0, 0, 1, 1, 0, 0, 1};
 
 int compare_strings(const void *s1, const void *s2)
@@ -62,8 +68,12 @@ char * format_mode(struct stat *stat, char * path)
     buf[7] = (mode & S_IROTH) ? 'r' : '-';
     buf[8] = (mode & S_IWOTH) ? 'w' : '-';
     buf[9] = (mode & S_IXOTH) ? (mode & S_ISVTX) ? 't' : 'x' : (mode & S_ISVTX) ? 'T' : '-';
+#ifdef OSX_ACL
     buf[10] = listxattr(path, NULL, 0, XATTR_NOFOLLOW)>0 ? '@' : !acl_get_entry(acl_get_link_np(path, ACL_TYPE_EXTENDED),
         ACL_FIRST_ENTRY, &foo) ? '+' : ' ';
+#else
+    buf[10] = '\0';
+#endif
     buf[11] = '\0';
     return strdup(buf);
 }
@@ -274,7 +284,7 @@ fail:
     p = f_names;
     while (*p)
     {
-        *p++;//free(*p++);
+        free(*p++);
     }
 denied:
     return result;
