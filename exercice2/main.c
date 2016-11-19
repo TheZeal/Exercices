@@ -8,10 +8,13 @@
 
 #define noOSX_ACL
 
+#define _BSD_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <dirent.h>
 #include <string.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include <grp.h>
 #include <time.h>
@@ -21,7 +24,21 @@
 #ifdef OSX_ACL
 #include <sys/xattr.h>
 #include <sys/acl.h>
+#else
+#include <sys/sysmacros.h>
 #endif
+
+#ifndef S_ISVTX
+#define S_ISVTX __S_ISVTX
+#endif
+
+#define st_mtimespec_tv_sec st_mtime
+//#define st_mtimespec_tv_sec st_mtimespec.tv_sec
+
+char *strdup( const char *p )
+{
+    return strcpy( malloc(strlen(p)+1), p );
+}
 
 #define MAX_FILES   1000000
 
@@ -50,7 +67,7 @@ int compare_strings(const void *s1, const void *s2)
 char * format_inode(struct stat *stat)
 {
     char buf[256];
-    sprintf(buf, "%llu", stat->st_ino);
+    sprintf(buf, "%llu", (unsigned long long)stat->st_ino);
     return strdup(buf);
 }
 
@@ -81,7 +98,7 @@ char * format_mode(struct stat *stat, char * path)
 char * format_nlink(struct stat *stat)
 {
     char buf[256];
-    sprintf(buf, "%u", stat->st_nlink);
+    sprintf(buf, "%u", (unsigned int)stat->st_nlink);
     return strdup(buf);
 }
 
@@ -94,8 +111,8 @@ char * format_creation_date(struct stat *stat)
 {
     char buf[14];
     time_t now = time(NULL);
-    struct tm time_info = *localtime(&stat->st_mtimespec.tv_sec);
-    if( now - stat->st_mtimespec.tv_sec > (365 / 2) * 86400)
+    struct tm time_info = *localtime(&stat->st_mtimespec_tv_sec);
+    if( now - stat->st_mtimespec_tv_sec > (365 / 2) * 86400)
     {
         strftime(buf, 14, "%b %e  %Y", &time_info);
     }
@@ -115,7 +132,7 @@ char * format_size(struct stat *stat)
     }
     else
     {
-        sprintf(buf, "%lld", stat->st_size);
+        sprintf(buf, "%lld", (long long)stat->st_size);
     }
     return strdup(buf);
 }
@@ -194,6 +211,7 @@ struct file_description * store_file_description(char *name, PrintType display_m
         }
         append(description, ret);
     }
+    free(buf);
     return description;
 }
 
@@ -236,6 +254,15 @@ void display_description(struct file_description *description, int maxSize[], Pr
     }
 }
 
+void free_description(struct file_description *description, int col_number)
+{
+    for(int i = 0; i!= col_number; i++)
+    {
+        free(description->fields[i]);
+    }
+    free(description);
+}
+
 int main(int argc, const char * argv[])
 {
     int result = EXIT_FAILURE;
@@ -256,10 +283,7 @@ int main(int argc, const char * argv[])
     {
         if (sd->d_name[0] != '.')
         {
-            char *p = malloc(sd->d_namlen + 1);
-            if (!p)
-                goto fail;
-            f_names[n_files++] = strcpy(p, sd->d_name);
+            f_names[n_files++] = strdup(sd->d_name);
         }
     }
     qsort(f_names, n_files, sizeof(char *), compare_strings);
@@ -279,6 +303,7 @@ int main(int argc, const char * argv[])
     for(int i = 0; i!= n_descriptions; i++)
     {
         display_description(descriptions[i], maxSize, display_modes, 8) ;
+        free_description(descriptions[i], 8);
     }
 fail:
     p = f_names;
@@ -286,6 +311,7 @@ fail:
     {
         free(*p++);
     }
+    closedir(d);
 denied:
     return result;
 }
