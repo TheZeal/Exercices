@@ -6,8 +6,6 @@
 //  Copyright © 2016 Zeal Iskander. All rights reserved.
 //  19
 
-#define noOSX_ACL
-
 #define _BSD_SOURCE
 
 #include <stdio.h>
@@ -21,7 +19,7 @@
 #include <sys/time.h>
 #include <pwd.h>
 #include <unistd.h>
-#ifdef OSX_ACL
+#ifdef __APPLE__
 #include <sys/xattr.h>
 #include <sys/acl.h>
 #else
@@ -87,7 +85,7 @@ char * format_mode(struct stat *stat, char * path)
     buf[9] = (mode & S_IXOTH) ? (mode & S_ISVTX) ? 't' : 'x' : (mode & S_ISVTX) ? 'T' : '-';
 #ifdef OSX_ACL
     buf[10] = listxattr(path, NULL, 0, XATTR_NOFOLLOW)>0 ? '@' : !acl_get_entry(acl_get_link_np(path, ACL_TYPE_EXTENDED),
-        ACL_FIRST_ENTRY, &foo) ? '+' : ' ';
+                                                                                ACL_FIRST_ENTRY, &foo) ? '+' : ' ';
 #else
     buf[10] = '\0';
 #endif
@@ -299,7 +297,8 @@ int main(int argc, const char * argv[])
     {
         maxSize[i] = get_max_size(descriptions, n_descriptions, i);
     }
-    printf("total %i\n", total_size);
+    if(total_size != 0 )
+        printf("total %i\n", total_size);
     for(int i = 0; i!= n_descriptions; i++)
     {
         display_description(descriptions[i], maxSize, display_modes, 8) ;
