@@ -51,7 +51,7 @@ typedef enum {
     NAME
 } PrintType;
 
-#ifdef OSX_ACL
+#ifdef __APPLE__
 acl_entry_t foo;
 #endif
 
@@ -83,7 +83,7 @@ char * format_mode(struct stat *stat, char * path)
     buf[7] = (mode & S_IROTH) ? 'r' : '-';
     buf[8] = (mode & S_IWOTH) ? 'w' : '-';
     buf[9] = (mode & S_IXOTH) ? (mode & S_ISVTX) ? 't' : 'x' : (mode & S_ISVTX) ? 'T' : '-';
-#ifdef OSX_ACL
+#ifdef __APPLE__
     buf[10] = listxattr(path, NULL, 0, XATTR_NOFOLLOW)>0 ? '@' : !acl_get_entry(acl_get_link_np(path, ACL_TYPE_EXTENDED),
                                                                                 ACL_FIRST_ENTRY, &foo) ? '+' : ' ';
 #else
@@ -297,7 +297,7 @@ int main(int argc, const char * argv[])
     {
         maxSize[i] = get_max_size(descriptions, n_descriptions, i);
     }
-    if(total_size != 0 )
+    if(n_files != 0 )
         printf("total %i\n", total_size);
     for(int i = 0; i!= n_descriptions; i++)
     {
